@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tạo bản tin</title>
+    <style>
+      /* Basic styles for popup */
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        z-index: 100;
+      }
+      #popup {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        display: none;
+        z-index: 101;
+        max-width: 300px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .word-info {
+        margin-bottom: 10px;
+      }
+      .word-info strong {
+        display: block;
+      }
+      #searchButton {
+        display: none;
+        margin-top: 10px;
+      }
+      /* Custom styles */
+      #text {
+        width: 100%;
+        height: 100px;
+      }
+      .furigana {
+        margin: 20px auto;
+        padding: 20px;
+      }
+      .furigana p {
+        font-size: 26px;
+        margin: 0;
+        line-height: 26px;
+        font-family: 'Noto Sans JP', sans-serif;
+        text-align: justify;
+        margin-top: 10px;
+        margin-bottom: 15px;
+      }
+      .furigana rt {
+        font-size: 14px;
+        color: #578FCA;
+        margin-top: 2px;
+        margin-bottom: 1px;
+      }
+      input[type="number"] {
+        width: 60px;
+      }
+
+      @media (max-width: 768px) {
+  .furigana {
+    width: 90vw; /* Adjust width to fit smaller screens */
+    padding: 10px; /* Reduce padding for mobile */
+  }
+  
+  .furigana p {
+    font-size: 18px; /* Smaller font size for mobile */
+    line-height: 18px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+  }
+
+  .furigana rt {
+    font-size: 10px; /* Smaller font size for rt elements */
+  }
+
+  input[type="number"],
+  input[type="color"] {
+    width: 50px; /* Smaller input boxes for mobile */
+  }
+}
+    </style>
+  </head>
+  <body>
+    <textarea id="text" rows="10" cols="50" placeholder="Nhập văn bản tiếng Nhật..."></textarea>
+    <!-- Input for furigana div width -->
+    <input type="number" id="furiganaWidth" placeholder="Width of Furigana" value="1000" />
+    <label style="margin-left: 20px;">Tiếng Việt</label>
+    <input style="margin-left: 20px;" type="checkbox" id="applyVietnameseStyle" checked /> 
+    <!-- Color pickers for customizing styles -->
+    <label for="pColor" style="margin-left: 20px;">p</label>
+    <input type="color" id="pColor" value="#000000" />
+    <label for="rubyColor">rb</label>
+    <input type="color" id="rubyColor" value="#3674B5" />
+
+    <label for="rtColor">rt</label>
+    <input type="color" id="rtColor" value="#578FCA" />
+
+    <label for="vietnameseColor">vn</label>
+    <input type="color" id="vietnameseColor" value="#8B0000" />
+
+    <label for="furiganaBgColor">bg color</label>
+    <input type="color" id="furiganaBgColor" value="#FFFFFF" />
+    <!-- Input boxes for font sizes and margins -->
+    <label for="pFontSize" style="margin-left: 20px;">Fs lineHeight p</label>
+    <input type="number" id="pFontSize" value="20" />
+
+    <label for="rtFontSize">Fs rt</label>
+    <input type="number" id="rtFontSize" value="12" />
+
+    <label for="vietnameseFontSize">Fs vn</label>
+    <input type="number" id="vietnameseFontSize" value="16" />
+
+    <label for="pMarginTop">Mt p</label>
+    <input type="number" id="pMarginTop" value="10" />
+
+    <label for="pMarginBottom">Mb p</label>
+    <input type="number" id="pMarginBottom" value="15" />
+    <button id="furiganaConvert">Furigana Convert</button>
+
+    <!-- Hidden overlay and popup -->
+    <div id="overlay"></div>
+    <div id="popup">
+      <div id="wordsContainer"></div>
+    </div>
+
+    <!-- Search button -->
+    <button id="searchButton">Tìm kiếm</button>
+
+    <script src="https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
+    <script src="https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    <script>
+      document.getElementById("furiganaConvert").addEventListener("click", async function () {
+        const applyVietnameseStyle = document.getElementById("applyVietnameseStyle").checked;
+        const furiganaWidth = document.getElementById("furiganaWidth").value || 1500;
+
+        const kuroshiro = Kuroshiro.default
+          ? new Kuroshiro.default()
+          : new Kuroshiro();
+
+        await kuroshiro.init(
+          new KuromojiAnalyzer({
+            dictPath: "./dict/",
+          })
+        );
+
+        const textElement = document.getElementById("text");
+        const originalText = textElement.value;
+        const lines = originalText.split('\n');
+        let furiganaDiv = document.querySelector('.furigana');
+
+        if (furiganaDiv) {
+          furiganaDiv.remove();
+        }
+
+        furiganaDiv = document.createElement('div');
+        furiganaDiv.className = 'furigana';
+        furiganaDiv.style.width = `${furiganaWidth}px`;
+
+        const pColor = document.getElementById("pColor").value;
+        const rubyColor = document.getElementById("rubyColor").value;
+        const rtColor = document.getElementById("rtColor").value;
+        const vietnameseColor = document.getElementById("vietnameseColor").value;
+        const furiganaBgColor = document.getElementById("furiganaBgColor").value;
+
+        furiganaDiv.style.backgroundColor = furiganaBgColor;
+
+        const pFontSize = document.getElementById("pFontSize").value;
+        const rtFontSize = document.getElementById("rtFontSize").value;
+        const vietnameseFontSize = document.getElementById("vietnameseFontSize").value;
+        const pMarginTop = document.getElementById("pMarginTop").value;
+        const pMarginBottom = document.getElementById("pMarginBottom").value;
+
+        for (const line of lines) {
+          if (line.trim() !== "") {
+            const p = document.createElement('p');
+            const result = await kuroshiro.convert(line, {
+              mode: "furigana",
+              to: "hiragana",
+            });
+            p.innerHTML = result;
+            p.style.color = pColor;
+            p.style.fontSize = `${pFontSize}px`;
+            p.style.lineHeight = `${pFontSize}px`;
+            p.style.marginTop = `${pMarginTop}px`;
+            p.style.marginBottom = `${pMarginBottom}px`;
+            p.querySelectorAll('ruby').forEach(ruby => ruby.style.color = rubyColor);
+            p.querySelectorAll('rt').forEach(rt => {
+              rt.style.color = rtColor;
+              rt.style.fontSize = `${rtFontSize}px`;
+            });
+            if (applyVietnameseStyle && furiganaDiv.childElementCount % 2 === 1) {
+              p.style.color = vietnameseColor;
+              p.style.fontSize = `${vietnameseFontSize}px`;
+            }
+            furiganaDiv.appendChild(p);
+          }
+        }
+
+        document.body.appendChild(furiganaDiv);
+      });
+
+      function adjustFuriganaWidth() {
+        const furiganaWidthInput = document.getElementById("furiganaWidth");
+        if (window.innerWidth <= 768) { // Mobile screen size
+          furiganaWidthInput.value = window.innerWidth - 40;
+        }
+      }
+
+      // Adjust furigana width on page load
+      window.addEventListener("load", adjustFuriganaWidth);
+      // Adjust furigana width on window resize
+      window.addEventListener("resize", adjustFuriganaWidth);
+    </script>
+  </body>
+</html>
